@@ -10,16 +10,24 @@ import (
 	"github.com/rjeczalik/notify"
 )
 
+// Call this function as the first function in your code.
+// It recompiles your program after a change in a go file and starts it after stopping the previous application.
+//
+//	func main() {
+//		watcher.HotReload()
+//		// your code
+//	}
 func HotReload(command ...string) {
 	prog := "go"
-	args := []string{"run", ".", "hotreload"}
+	args := []string{"run", "."}
 	if isStartedFromHotReloader() {
 		return
 	}
 	if len(command) > 0 {
 		prog = command[0]
-		args = append(append(args, command[1:]...), "hotreload")
+		args = append(args, command[1:]...)
 	}
+	args = append(args, "hotreload")
 
 	c := make(chan notify.EventInfo, 1)
 	if err := notify.Watch("./...", c, notify.All); err != nil {
