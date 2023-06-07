@@ -25,7 +25,7 @@ func HotReload(command ...string) {
 	}
 	if len(command) > 0 {
 		prog = command[0]
-		args = append(args, command[1:]...)
+		args = command[1:]
 	}
 	args = append(args, "hotreload")
 
