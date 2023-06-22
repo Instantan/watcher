@@ -1,11 +1,11 @@
 package watcher
 
 import (
-	"context"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 
 	"github.com/rjeczalik/notify"
 )
@@ -45,18 +45,24 @@ func HotReload(command ...string) {
 		default:
 			continue
 		}
-		cmd.Cancel()
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		cmd.Process.Wait()
 		println()
 		logger.Println("go run .")
 		cmd = runCmd(prog, args...)
 	}
-	os.Exit(0)
+	defer func() {
+		if cmd != nil {
+			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			cmd.Process.Wait()
+		}
+		os.Exit(0)
+	}()
 }
 
 func runCmd(prog string, args ...string) *exec.Cmd {
-	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, prog, args...)
-	setCmdInAndOut(cmd)
+	cmd := exec.Command(prog, args...)
+	setCmdProps(cmd)
 	if err := cmd.Start(); err != nil {
 		panic(err)
 	}
@@ -76,7 +82,8 @@ func isStartedFromHotReloader() bool {
 	return false
 }
 
-func setCmdInAndOut(cmd *exec.Cmd) {
+func setCmdProps(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

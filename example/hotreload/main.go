@@ -1,13 +1,15 @@
 package main
 
 import (
-	"fmt"
+	"net/http"
 
 	"github.com/Instantan/watcher"
 )
 
 func main() {
 	watcher.HotReload()
-	fmt.Printf("Started")
-	<-make(chan struct{})
+	println("started.")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		panic(err)
+	}
 }
