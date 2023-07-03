@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"syscall"
 
@@ -37,27 +38,32 @@ func HotReload(command ...string) {
 
 	logger := log.New(os.Stdout, "HOTRELOAD: ", log.LstdFlags|log.Lmsgprefix)
 
+	controlC := catchControlC()
 	cmd := runCmd(prog, args...)
-	for e := range c {
-		ext := filepath.Ext(e.Path())
-		switch ext {
-		case ".go":
-		default:
-			continue
-		}
-		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		cmd.Process.Wait()
-		println()
-		logger.Println("go run .")
-		cmd = runCmd(prog, args...)
-	}
-	defer func() {
-		if cmd != nil {
+
+	for {
+		select {
+		case e := <-c:
+			ext := filepath.Ext(e.Path())
+			switch ext {
+			case ".go":
+			default:
+				continue
+			}
 			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 			cmd.Process.Wait()
+			println()
+			logger.Println("go run .")
+			cmd = runCmd(prog, args...)
+		case <-controlC:
+			logger.Println("STOPPED")
+			if cmd != nil {
+				syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+				cmd.Process.Wait()
+			}
+			os.Exit(0)
 		}
-		os.Exit(0)
-	}()
+	}
 }
 
 func runCmd(prog string, args ...string) *exec.Cmd {
@@ -87,4 +93,10 @@ func setCmdProps(cmd *exec.Cmd) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
+}
+
+func catchControlC() chan os.Signal {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	return c
 }
